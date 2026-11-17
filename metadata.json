@@ -1,0 +1,6 @@
+{
+  "name": "JARVIS",
+  "description": "Personal & College AI Assistant for Daddy — Futuristic Neural Brain HUD powered by Google Gemini with two-way voice, task automation, and focus timer.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

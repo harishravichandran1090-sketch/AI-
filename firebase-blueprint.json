@@ -1,0 +1,138 @@
+{
+  "entities": {
+    "CollegeTask": {
+      "title": "CollegeTask",
+      "description": "A college or personal task managed by Daddy and JARVIS.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Coursework", "Lab Record", "Exam Prep", "Project", "Coding", "Personal"]
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["high", "medium", "low"]
+        },
+        "completed": {
+          "type": "boolean"
+        },
+        "steps": {
+          "type": "array",
+          "description": "Ordered sub-steps (max 12, each up to 160 chars)."
+        },
+        "completedSteps": {
+          "type": "array",
+          "description": "Completed step labels (max 12, each up to 160 chars)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "title", "category", "priority", "completed", "steps", "completedSteps", "createdAt", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Conversation turn between Daddy and JARVIS.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "assistant"]
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "actions": {
+          "type": "array",
+          "description": "Summaries of HUD actions executed on this turn (max 8)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "role", "content", "actions", "createdAt"]
+    },
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "Voice, focus timer, and academic preferences for JARVIS.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "voiceEnabled": {
+          "type": "boolean"
+        },
+        "handsFreeMode": {
+          "type": "boolean"
+        },
+        "voiceName": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "speechRate": {
+          "type": "number"
+        },
+        "speechPitch": {
+          "type": "number"
+        },
+        "focusMinutes": {
+          "type": "integer"
+        },
+        "courseTrack": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "voiceEnabled", "handsFreeMode", "voiceName", "speechRate", "speechPitch", "focusMinutes", "courseTrack", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/CollegeTask" },
+      "description": "Owner-scoped college and personal tasks."
+    },
+    "/users/{userId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Owner-scoped JARVIS conversation history."
+    },
+    "/users/{userId}/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/UserSettings" },
+      "description": "Owner-scoped JARVIS voice and focus preferences."
+    }
+  }
+}

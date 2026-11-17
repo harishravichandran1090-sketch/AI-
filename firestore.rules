@@ -1,0 +1,150 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidStringList(arr, maxLen, maxItemLen) {
+      return arr is list
+        && arr.size() <= maxLen
+        && (arr.size() == 0 || (arr[0] is string && arr[0].size() <= maxItemLen));
+    }
+
+    function isValidTask(data, userId) {
+      return data.keys().hasAll([
+          'userId', 'title', 'category', 'priority', 'completed',
+          'steps', 'completedSteps', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'title', 'category', 'priority', 'completed',
+          'steps', 'completedSteps', 'createdAt', 'updatedAt'
+        ])
+        && data.userId == request.auth.uid
+        && data.userId == userId
+        && isValidId(data.userId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 160
+        && data.category in ['Coursework', 'Lab Record', 'Exam Prep', 'Project', 'Coding', 'Personal']
+        && data.priority in ['high', 'medium', 'low']
+        && data.completed is bool
+        && isValidStringList(data.steps, 12, 160)
+        && isValidStringList(data.completedSteps, 12, 160)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMessage(data, userId) {
+      return data.keys().hasAll(['userId', 'role', 'content', 'actions', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'role', 'content', 'actions', 'createdAt'])
+        && data.userId == request.auth.uid
+        && data.userId == userId
+        && isValidId(data.userId)
+        && data.role in ['user', 'assistant']
+        && data.content is string && data.content.size() >= 1 && data.content.size() <= 12000
+        && isValidStringList(data.actions, 8, 200)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidSettings(data, userId) {
+      return data.keys().hasAll([
+          'userId', 'voiceEnabled', 'handsFreeMode', 'voiceName',
+          'speechRate', 'speechPitch', 'focusMinutes', 'courseTrack', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'voiceEnabled', 'handsFreeMode', 'voiceName',
+          'speechRate', 'speechPitch', 'focusMinutes', 'courseTrack', 'updatedAt'
+        ])
+        && data.userId == request.auth.uid
+        && data.userId == userId
+        && isValidId(data.userId)
+        && data.voiceEnabled is bool
+        && data.handsFreeMode is bool
+        && data.voiceName is string && data.voiceName.size() <= 120
+        && (data.speechRate is float || data.speechRate is int)
+        && data.speechRate >= 0.5 && data.speechRate <= 2.0
+        && (data.speechPitch is float || data.speechPitch is int)
+        && data.speechPitch >= 0.5 && data.speechPitch <= 2.0
+        && data.focusMinutes is int && data.focusMinutes >= 1 && data.focusMinutes <= 120
+        && data.courseTrack is string && data.courseTrack.size() <= 120
+        && data.updatedAt is timestamp;
+    }
+
+    match /users/{userId}/tasks/{taskId} {
+      allow get: if isOwner(userId) && isVerified() && isValidId(userId) && isValidId(taskId);
+      allow list: if isOwner(userId) && isVerified() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(userId) && isVerified()
+        && isValidId(userId) && isValidId(taskId)
+        && isValidTask(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isOwner(userId) && isVerified()
+        && isValidId(userId) && isValidId(taskId)
+        && isValidTask(incoming(), userId)
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['completed', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['completedSteps', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['steps', 'completedSteps', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'priority', 'steps', 'completedSteps', 'completed', 'updatedAt'])
+        );
+      allow delete: if isOwner(userId) && isVerified() && isValidId(userId) && isValidId(taskId);
+    }
+
+    match /users/{userId}/messages/{messageId} {
+      allow get: if isOwner(userId) && isVerified() && isValidId(userId) && isValidId(messageId);
+      allow list: if isOwner(userId) && isVerified() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(userId) && isVerified()
+        && isValidId(userId) && isValidId(messageId)
+        && isValidMessage(incoming(), userId)
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isOwner(userId) && isVerified() && isValidId(userId) && isValidId(messageId);
+    }
+
+    match /users/{userId}/settings/{settingId} {
+      allow get: if isOwner(userId) && isVerified() && isValidId(userId) && settingId == 'preferences';
+      allow list: if false;
+      allow create: if isOwner(userId) && isVerified()
+        && isValidId(userId) && settingId == 'preferences'
+        && isValidSettings(incoming(), userId)
+        && incoming().updatedAt == request.time;
+      allow update: if isOwner(userId) && isVerified()
+        && isValidId(userId) && settingId == 'preferences'
+        && isValidSettings(incoming(), userId)
+        && incoming().userId == existing().userId
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'voiceEnabled', 'handsFreeMode', 'voiceName', 'speechRate',
+          'speechPitch', 'focusMinutes', 'courseTrack', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+  }
+}
